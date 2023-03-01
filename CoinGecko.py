@@ -1,7 +1,8 @@
 import pprint
 from pycoingecko import CoinGeckoAPI
-from DataBase import AllCoins, Profiles
+from app import AllCoins, Profiles
 from app import app, db
+from sqlalchemy import func
 
 cg = CoinGeckoAPI()
 
@@ -28,7 +29,6 @@ def coin_data():
         for coin in ls_coin:
             if coin.id_coin in coin_ids:
                 print(f'id {coin.id_coin} вже у таблиці')
-                pass
             else:
                 print(coin.id_coin)
                 try:
@@ -45,4 +45,48 @@ def coin_data():
                     print(e)
 
 
-coin_data()
+# removes unrated cryptocurrencies
+def delete_wtht_rtng():
+    with app.app_context():
+        null_rank = Profiles.query.filter_by(cg_rank=None).all()
+        for profile in null_rank:
+            db.session.delete(profile)
+        db.session.commit()
+
+        coins_to_delete = db.session.query(AllCoins). \
+            outerjoin(Profiles, AllCoins.id_coin == Profiles.coin_id). \
+            filter(Profiles.coin_id is None).all()
+
+        for coin in coins_to_delete:
+            db.session.delete(coin)
+        db.session.commit()
+
+# rating CG update
+def update_rtng():
+    id_list = []
+    with app.app_context():
+        id_list = AllCoins.query.all()
+        for coin in id_list:
+            try:
+                info_coin = cg.get_coin_by_id(coin.id_coin)
+                print(f"{coin.id_coin} new cg_rank {info_coin['market_data']['market_cap']['usd']}")
+                db.session.query(Profiles).filter_by\
+                    (coin_id=coin.id_coin).update({Profiles.cg_rank: info_coin['market_data']['market_cap']['usd']})
+
+                db.session.commit()
+            except Exception as e:
+                print(e)
+
+# sorting id in the profiles table
+def sorted_profiles():
+    with app.app_context():
+        profiles_sorted = Profiles.query.order_by(Profiles.cg_rank.desc()).all()
+        i = 0
+        for profile in profiles_sorted:
+            print(f'old_id={profile.id}')
+            print(f'{profile.coin_id}')
+            i += 1
+            print(f'new_id={i}')
+            db.session.query(AllCoins).filter_by(id_coin=profile.coin_id).update({'rating': i})
+            db.session.flush()
+        db.session.commit()

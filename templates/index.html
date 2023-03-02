@@ -5,6 +5,27 @@
     <title>{{title}}</title>
 </head>
 <body>
-<h1>Bambetel</h1>
+{% if all_coins_data %}
+<ul>
+    {% for all_coin, profile in all_coins_data %}
+    <li>
+        <p>{{ all_coin.rating }}: {{ all_coin.name }} <img src="{{profile.img_thumb}}" alt="logo"></p>
+        <ul>
+          <li>{{ all_coin.symbol.upper() }}</li>
+            {% if all_coin.price == None %}
+                all_coin.price = 0
+            {% else %}
+                <li>price: {{ all_coin.price | format_number }} USD</li>
+            {% endif %}
+          <li>market cap: {{ profile.cg_rank | format_number}} USD</li>
+          <li><a href="{{ profile.homepage }}">{{ all_coin.name }} site</a></li>
+        </ul>
+    </li>
+    {% endfor %}
+</ul>
+{{ pagination.links }}
+{% else %}
+    <p>No coins found.</p>
+{% endif %}
 </body>
 </html>

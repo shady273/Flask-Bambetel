@@ -2,7 +2,7 @@ import pprint
 from pycoingecko import CoinGeckoAPI
 from app import AllCoins, Profiles
 from app import app, db
-from sqlalchemy import func
+from sqlalchemy import func, desc, asc
 
 cg = CoinGeckoAPI()
 
@@ -90,3 +90,28 @@ def sorted_profiles():
             db.session.query(AllCoins).filter_by(id_coin=profile.coin_id).update({'rating': i})
             db.session.flush()
         db.session.commit()
+
+# update price coins
+def updata_price():
+    with app.app_context():
+        all_coins_data = db.session.query(AllCoins).order_by(asc(AllCoins.rating)).all()
+        id_coin_list = [coin.id_coin for coin in all_coins_data]
+        for i in range(0, len(id_coin_list), 500):
+            price = cg.get_price(id_coin_list[i:i+500], vs_currencies='usd')
+
+            for coin_id in price:
+                try:
+                    db.session.query(AllCoins).filter_by(id_coin=coin_id).update({'price': price[coin_id]['usd']})
+                    db.session.commit()
+                except Exception as e:
+                    print(e)
+
+
+# Delete coin withaout coin price
+def delete_coin_wpr():
+    with app.app_context():
+        coins_to_delete = db.session.query(AllCoins).filter(AllCoins.price == None).all()
+        for delete in coins_to_delete:
+            db.session.delete(delete)
+            db.session.commit()
+
